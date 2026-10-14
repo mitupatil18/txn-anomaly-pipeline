@@ -73,6 +73,8 @@ curl localhost:8000/transactions/7b1f4a52-9a1e-4b6a-8e53-2f2d1c9a0a11
 * **Batching** (`BATCH_SIZE`): one DB transaction and one offset commit per batch, with an in-memory
   state overlay so rules stay correct inside a batch.
 * **REST API:** keyset pagination, consistent error bodies, `/health`, `/ready`, `/metrics`.
+* **Web UI:** `/ui` shows the latest 50 alerts with a rule filter and 5-second auto-refresh (Jinja2 + HTMX, no JS build).
+* **Kubernetes:** manifests for api and consumer (probes, limits, HPA, migration job) under `deploy/k8s/`, verified on kind.
 * **Observability:** per-service metrics, consumer lag via kafka-exporter, provisioned Grafana dashboard
   (throughput, alerts, lag per partition, latency p50/p95/p99, retries and DLQ, API rate and latency).
 * **Engineering hygiene:** type hints, ruff, mypy, unit and testcontainers integration tests, CI,
@@ -88,6 +90,13 @@ PostgreSQL 16, Kafka 3.7, Prometheus, Grafana.
 Captured during a 400 msg/s run: the consumer first works through a backlog built up under
 `BATCH_SIZE=1` (lag on the left), is then switched to `BATCH_SIZE=200`, drains it, and holds lag
 at zero. The "DLQ validation" line comes from 1% injected invalid messages.
+
+## Web UI
+
+http://localhost:8000/ui lists the latest alerts and refreshes every 5 seconds (HTMX is loaded from a CDN, so
+the browser needs internet access for the auto-refresh; the page itself is server-rendered).
+
+![Alerts UI](docs/images/ui.png)
 
 ## Operations
 
@@ -127,10 +136,16 @@ Redis, consumers, monitoring) in one Docker VM; median of 3 runs, 200,000 pre-lo
 | C | 3 | 200 | 1,618 | 18.8x |
 | D | 6 | 200 | 1,980 | 23.0x |
 | E (8 consumers > 6 partitions) | 8 | 200 | 2,112 | 24.6x (within noise of D; 2 consumers idle) |
+| F (6 consumers, 3 partitions) | 6 | 200 | 1,504 | 17.5x (about 24% below D; only 3 consumers get a partition) |
 
 Batching gave the largest gain; scaling out is sub-linear, and PostgreSQL (plus the shared VM) is the
 likely limit. Run-to-run noise is high. Method, per-run values, CPU usage and caveats:
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+## Kubernetes
+
+See [deploy/k8s/README.md](deploy/k8s/README.md): `kubectl apply -k deploy/k8s` (plus `deploy/k8s/dev-infra`
+for a self-contained demo on kind). Kafka, PostgreSQL and Redis are assumed external in real clusters.
 
 ## Design
 
@@ -148,5 +163,5 @@ exactly-once, 100x scale).
   by the velocity rule).
 * A batch that exhausts transient retries goes to the DLQ as a whole; a circuit breaker that pauses
   consumption would be better for long outages.
-* Single-broker Kafka, single Postgres and Redis (demo topology); Kubernetes manifests and the optional
-  `/ui` page are not included.
+* Single-broker Kafka, single Postgres and Redis (demo topology). In Kubernetes the consumer HPA object
+  was not exercised (no metrics-server on kind); see `deploy/k8s/README.md`.
