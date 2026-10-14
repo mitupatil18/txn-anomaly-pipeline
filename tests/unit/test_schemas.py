@@ -1,8 +1,8 @@
 import json
 
 import pytest
-from tests.unit.helpers import make_event, payload
 
+from tests.unit.helpers import make_event, payload
 from txnpipe.common.schemas import parse_event
 
 VALID = json.loads(payload())

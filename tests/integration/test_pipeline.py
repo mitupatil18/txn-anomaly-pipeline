@@ -5,9 +5,9 @@ import pytest
 from confluent_kafka import Consumer, Producer
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
 from tests.integration.conftest import Pipeline, publish, wait_for
 from tests.unit.helpers import BASE_TS, payload
-
 from txnpipe.common.config import Settings
 
 pytestmark = pytest.mark.integration

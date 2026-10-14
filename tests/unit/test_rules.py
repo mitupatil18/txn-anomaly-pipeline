@@ -1,5 +1,4 @@
 from tests.unit.helpers import BASE_TS, make_event
-
 from txnpipe.consumer.rules import AccountState
 from txnpipe.consumer.rules.amount_spike import AmountSpikeRule
 from txnpipe.consumer.rules.geo_mismatch import GeoMismatchRule

@@ -1,7 +1,6 @@
 from typing import Any
 
 from tests.unit.helpers import BASE_TS, make_event
-
 from txnpipe.consumer.rules import AccountState
 from txnpipe.consumer.state import EWMA_ALPHA, RedisState, apply_event
 

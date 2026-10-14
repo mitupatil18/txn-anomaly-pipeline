@@ -7,8 +7,8 @@ from confluent_kafka import Consumer
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from tests.unit.helpers import payload
 
+from tests.unit.helpers import payload
 from txnpipe.api.main import create_app
 from txnpipe.common.config import Settings
 

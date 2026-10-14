@@ -2,9 +2,9 @@ from typing import Any
 
 import pytest
 from confluent_kafka import KafkaError, KafkaException
+
 from tests.unit.fakes import FakeDlq, FakeRepo, FakeState
 from tests.unit.helpers import payload
-
 from txnpipe.common.config import Settings
 from txnpipe.consumer.dlq import KafkaDlqPublisher
 from txnpipe.consumer.handler import Handler

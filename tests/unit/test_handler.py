@@ -1,9 +1,9 @@
 import uuid
 
 import pytest
+
 from tests.unit.fakes import FakeDlq, FakeRepo, FakeState, rec
 from tests.unit.helpers import BASE_TS, make_event, payload
-
 from txnpipe.common.config import Settings
 from txnpipe.consumer.handler import Handler
 from txnpipe.consumer.retry import RetryPolicy
