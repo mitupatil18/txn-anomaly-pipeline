@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from txnpipe.api.routes import accounts, alerts, transactions
+from txnpipe.api.routes import accounts, alerts, transactions, ui
 from txnpipe.common.config import Settings, get_settings
 from txnpipe.common.db import make_engine
 from txnpipe.common.logging import setup_logging
@@ -86,6 +86,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(alerts.router)
     app.include_router(transactions.router)
     app.include_router(accounts.router)
+    app.include_router(ui.router)
     return app
 
 

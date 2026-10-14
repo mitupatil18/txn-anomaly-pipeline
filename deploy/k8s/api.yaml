@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: txn-api
+  namespace: txn-pipeline
+  labels: {app: txn-api}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: txn-api}
+  template:
+    metadata:
+      labels: {app: txn-api}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      initContainers:
+        - name: wait-for-schema
+          image: txnpipe:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "scripts/wait_for_schema.py"]
+          envFrom:
+            - secretRef: {name: txn-secret}
+      containers:
+        - name: api
+          image: txnpipe:latest
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "txnpipe.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - {name: http, containerPort: 8000}
+          envFrom:
+            - configMapRef: {name: txn-config}
+            - secretRef: {name: txn-secret}
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: txn-api
+  namespace: txn-pipeline
+spec:
+  selector: {app: txn-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}

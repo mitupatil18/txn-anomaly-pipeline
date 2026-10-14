@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: postgres, namespace: txn-pipeline}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: postgres}}
+  template:
+    metadata: {labels: {app: postgres}}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          env:
+            - {name: POSTGRES_USER, value: txn}
+            - {name: POSTGRES_PASSWORD, value: txn}
+            - {name: POSTGRES_DB, value: txn}
+          ports: [{containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "txn", "-d", "txn"]}
+            periodSeconds: 3
+          volumeMounts: [{name: data, mountPath: /var/lib/postgresql/data}]
+          resources: {requests: {cpu: 100m, memory: 256Mi}}
+      volumes: [{name: data, emptyDir: {}}]   # demo only: data is lost when the pod restarts
+---
+apiVersion: v1
+kind: Service
+metadata: {name: postgres, namespace: txn-pipeline}
+spec:
+  selector: {app: postgres}
+  ports: [{port: 5432}]

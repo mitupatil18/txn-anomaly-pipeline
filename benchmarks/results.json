@@ -471,6 +471,93 @@
         "redis": 34.2
       },
       "finished_at": "2026-10-13T07:43:59+00:00"
+    },
+    {
+      "experiment": "F",
+      "run": 1,
+      "consumers": 6,
+      "batch_size": 200,
+      "partitions": 3,
+      "messages": 200000,
+      "rows": 200000,
+      "dlq": 0,
+      "throughput_msg_s": 1504.5,
+      "drain_seconds": 132.94,
+      "wall_seconds": 143.5,
+      "proc_ms_p50": 1.772,
+      "proc_ms_p95": 3.766,
+      "proc_ms_p99": 4.795,
+      "e2e_s_p50": 63.39,
+      "e2e_s_p95": 129.35,
+      "e2e_s_p99": 137.75,
+      "retries": null,
+      "peak_cpu_pct": {
+        "consumer": 204.5,
+        "kafka": 281.4,
+        "kafka-exporter": 9.5,
+        "postgres": 141.6,
+        "prometheus": 4.2,
+        "redis": 26.1
+      },
+      "finished_at": "2026-10-14T03:58:43+00:00"
+    },
+    {
+      "experiment": "F",
+      "run": 2,
+      "consumers": 6,
+      "batch_size": 200,
+      "partitions": 3,
+      "messages": 200000,
+      "rows": 200000,
+      "dlq": 0,
+      "throughput_msg_s": 1340.4,
+      "drain_seconds": 149.21,
+      "wall_seconds": 157.68,
+      "proc_ms_p50": 1.869,
+      "proc_ms_p95": 4.326,
+      "proc_ms_p99": 4.912,
+      "e2e_s_p50": 73.57,
+      "e2e_s_p95": 142.79,
+      "e2e_s_p99": 153.1,
+      "retries": null,
+      "peak_cpu_pct": {
+        "consumer": 163.4,
+        "kafka": 305.3,
+        "kafka-exporter": 11.1,
+        "postgres": 134.2,
+        "prometheus": 2.7,
+        "redis": 34.6
+      },
+      "finished_at": "2026-10-14T04:02:44+00:00"
+    },
+    {
+      "experiment": "F",
+      "run": 3,
+      "consumers": 6,
+      "batch_size": 200,
+      "partitions": 3,
+      "messages": 200000,
+      "rows": 200000,
+      "dlq": 0,
+      "throughput_msg_s": 1936.7,
+      "drain_seconds": 103.27,
+      "wall_seconds": 108.48,
+      "proc_ms_p50": 1.594,
+      "proc_ms_p95": 2.429,
+      "proc_ms_p99": 2.906,
+      "e2e_s_p50": 53.34,
+      "e2e_s_p95": 98.48,
+      "e2e_s_p99": 106.36,
+      "retries": null,
+      "peak_cpu_pct": {
+        "consumer": 138.6,
+        "kafka": 240.7,
+        "kafka-exporter": 10.2,
+        "postgres": 119.9,
+        "prometheus": 6.0,
+        "redis": 22.4
+      },
+      "finished_at": "2026-10-14T04:05:39+00:00"
     }
   ]
 }

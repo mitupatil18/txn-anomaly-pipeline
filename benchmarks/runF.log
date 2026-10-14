@@ -1,0 +1,6 @@
+[F#1] consumers=6 batch=200 partitions=3
+    -> 1,504 msg/s in 132.94s
+[F#2] consumers=6 batch=200 partitions=3
+    -> 1,340 msg/s in 149.21s
+[F#3] consumers=6 batch=200 partitions=3
+    -> 1,937 msg/s in 103.27s

@@ -2,14 +2,14 @@
 
 Every number in this file is produced by `scripts/benchmark.py`; nothing here is estimated.
 Raw per-run data (including every individual run) is in `benchmarks/results.json`.
-Experiments A to E were run 3 times each; experiment F was not run.
+Experiments A to F were run 3 times each.
 
 ## How to run
 
 ```bash
 docker compose up -d --build          # the stack must be buildable; the script manages the rest
 python scripts/benchmark.py --messages 200000 --baseline-messages 20000 --runs 3 --experiments A B C D E
-python scripts/benchmark.py --experiments F --runs 3   # optional: partition count
+python scripts/benchmark.py --experiments F --runs 3   # partition count (needs the topic recreated with 3 partitions; the script does this)
 python scripts/benchmark.py --render-only              # regenerate the table from benchmarks/results.json
 ```
 
@@ -40,7 +40,7 @@ PostgreSQL.
 | C | 3 consumers, best batch | horizontal scaling |
 | D | 6 consumers, best batch | scaling up to the partition count |
 | E | 8 consumers, best batch | more consumers than partitions: 2 sit idle |
-| F | 6 consumers, 3 partitions (optional) | effect of partition count |
+| F | 6 consumers, 3 partitions | effect of partition count |
 
 ## Results
 
@@ -54,6 +54,7 @@ Values are the **median** over the runs listed.
 | C | 200,000 | 3 | 200 | 6 | 3 | 1,618 | 123.6 | 3.48 | 70.8 / 126.0 / 130.8 | 0 | 3 consumers, best batch size |
 | D | 200,000 | 6 | 200 | 6 | 3 | 1,980 | 101.0 | 4.83 | 58.8 / 101.7 / 107.3 | 0 | 6 consumers (= partitions), best batch size |
 | E | 200,000 | 8 | 200 | 6 | 3 | 2,112 | 94.7 | 4.80 | 50.5 / 95.1 / 100.1 | 0 | 8 consumers (> partitions): idle consumers |
+| F | 200,000 | 6 | 200 | 3 | 3 | 1,504 | 132.9 | 3.77 | 63.4 / 129.3 / 137.8 | 0 | 6 consumers on 3 partitions |
 
 Peak CPU% seen by `docker stats` (sampled every ~2s; 100% = one core):
 
@@ -64,6 +65,7 @@ Peak CPU% seen by `docker stats` (sampled every ~2s; 100% = one core):
 | C | api 53%, consumer 173%, grafana 17%, kafka 260%, kafka-exporter 9%, postgres 96%, prometheus 4%, redis 22% |
 | D | api 97%, consumer 221%, grafana 9%, kafka 106%, kafka-exporter 17%, postgres 114%, prometheus 5%, redis 34% |
 | E | api 105%, consumer 215%, grafana 26%, kafka 296%, kafka-exporter 13%, postgres 208%, prometheus 6%, redis 34% |
+| F | consumer 204%, kafka 305%, kafka-exporter 11%, postgres 142%, prometheus 6%, redis 35% |
 
 Test machine: os: Windows-10-10.0.26200-SP0; cpu: Intel64 Family 6 Model 170 Stepping 4, GenuineIntel; host_cpu_count: 14; docker_vm: 14 CPUs, 16469655552 bytes; python: 3.11.9
 <!-- RESULTS:END -->
@@ -71,7 +73,7 @@ Test machine: os: Windows-10-10.0.26200-SP0; cpu: Intel64 Family 6 Model 170 Ste
 ## Analysis
 
 Individual runs (msg/s): A 82 / 86 / 96, B 972 / 992 / 628, C 1,512 / 1,618 / 1,789,
-D 2,038 / 1,980 / 1,941, E 2,112 / 2,934 / 1,987. The machine also ran Kafka, Postgres, Redis,
+D 2,038 / 1,980 / 1,941, E 2,112 / 2,934 / 1,987, F 1,504 / 1,340 / 1,937. The machine also ran Kafka, Postgres, Redis,
 Prometheus and Grafana in one Docker VM, so run-to-run noise is large (see B run 3 and E run 2).
 
 * **Batching is the big win: A to B is ~11x** (86 to 972 msg/s, medians). With `BATCH_SIZE=1` every
@@ -93,6 +95,12 @@ Prometheus and Grafana in one Docker VM, so run-to-run noise is large (see B run
   group, so the two extra consumers sit idle and cannot add throughput; they are only useful as
   hot standbys that take over on failure. With this noise the data cannot show any difference
   between D and E.
+* **F (6 consumers, 3 partitions):** median 1,504 msg/s versus 1,980 for D (same consumers, 6
+  partitions), about 24% lower. Only 3 of the 6 consumers receive a partition, so F behaves like C
+  (3 active consumers, 1,618 msg/s): the two medians are within the noise of each other. Run 3 (1,937)
+  overlaps D's range, so with only 3 runs the size of the gap is uncertain; the direction
+  (fewer partitions caps parallelism) is what the design predicts. The partition count is the upper
+  bound on useful consumers, and it is hard to raise later without disturbing key-to-partition mapping.
 * **End-to-end latency here is drain time** (see Method): p99 is roughly equal to the drain time because
   the backlog was pre-loaded. It says how long the last message waited, not the latency at a
   sustainable load. Note that the default `BATCH_SIZE=1` only sustains roughly 90 msg/s here, so

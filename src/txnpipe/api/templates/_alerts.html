@@ -1,0 +1,12 @@
+{% for a in alerts %}
+<tr>
+  <td>{{ a.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+  <td>{{ a.account_id }}</td>
+  <td>{{ a.rule }}</td>
+  <td><span class="sev sev-{{ a.severity | lower }}">{{ a.severity }}</span></td>
+  <td><a href="/transactions/{{ a.transaction_id }}">{{ a.transaction_id[:8] }}</a></td>
+  <td class="details">{% for k, v in a.details.items() %}{{ k }}={{ v }} {% endfor %}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="empty">No alerts yet. Run <code>make load</code>.</td></tr>
+{% endfor %}

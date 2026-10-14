@@ -158,3 +158,11 @@ def test_post_transaction_publishes_to_kafka(
             break
     c.close()
     assert msg is not None and msg.key() == b"acc_1"
+
+
+def test_ui_lists_latest_alerts_from_database(client: TestClient, seeded: None) -> None:
+    page = client.get("/ui")
+    assert page.status_code == 200 and page.text.count("<tr>") >= 7  # header + 6 alerts
+    only = client.get("/ui/alerts", params={"rule": "GEO_MISMATCH"}).text
+    assert "GEO_MISMATCH" in only and "VELOCITY" not in only
+    assert "No alerts yet" not in only

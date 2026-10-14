@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Latest alerts</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem auto; max-width: 70rem; padding: 0 1rem; }
+    h1 { font-size: 1.3rem; margin-bottom: .25rem; }
+    .bar { display: flex; gap: 1rem; align-items: center; margin: 1rem 0; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #ddd; }
+    th { background: #f4f4f4; }
+    .details { color: #555; font-family: ui-monospace, monospace; font-size: 12px; }
+    .sev { padding: 1px 8px; border-radius: 9px; font-size: 12px; color: #fff; }
+    .sev-high { background: #c62828; } .sev-medium { background: #ef6c00; } .sev-low { background: #607d8b; }
+    .empty { color: #777; text-align: center; padding: 2rem; }
+    .htmx-request { opacity: .7; }
+  </style>
+</head>
+<body>
+  <h1>Latest {{ limit }} alerts</h1>
+  <div class="bar">
+    <label>Rule
+      <select id="rule" name="rule"
+              hx-get="/ui/alerts" hx-target="#rows" hx-trigger="change">
+        <option value="">All</option>
+        {% for r in rules %}<option value="{{ r }}" {{ "selected" if r == rule }}>{{ r }}</option>{% endfor %}
+      </select>
+    </label>
+    <span>Auto-refresh every 5s</span>
+    <a href="/docs">API docs</a>
+  </div>
+  <table>
+    <thead><tr><th>Time</th><th>Account</th><th>Rule</th><th>Severity</th><th>Transaction</th><th>Details</th></tr></thead>
+    <tbody id="rows" hx-get="/ui/alerts" hx-include="#rule" hx-trigger="every 5s">
+      {% include "_alerts.html" %}
+    </tbody>
+  </table>
+</body>
+</html>

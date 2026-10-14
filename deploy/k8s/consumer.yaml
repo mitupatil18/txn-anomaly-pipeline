@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: txn-consumer
+  namespace: txn-pipeline
+  labels: {app: txn-consumer}
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: txn-consumer}
+  template:
+    metadata:
+      labels: {app: txn-consumer}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: /metrics
+    spec:
+      # Time for the consumer to finish its batch, commit offsets and leave the group on SIGTERM.
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-schema
+          image: txnpipe:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "scripts/wait_for_schema.py"]
+          envFrom:
+            - secretRef: {name: txn-secret}
+      containers:
+        - name: consumer
+          image: txnpipe:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "txnpipe.consumer.main"]
+          ports:
+            - {name: metrics, containerPort: 8001}
+          envFrom:
+            - configMapRef: {name: txn-config}
+            - secretRef: {name: txn-secret}
+          livenessProbe:
+            httpGet: {path: /metrics, port: metrics}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /metrics, port: metrics}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 200m, memory: 192Mi}
+            limits: {cpu: "1", memory: 512Mi}
+---
+# Scaling beyond the partition count (6) adds idle consumers, so maxReplicas is capped at 6.
+# Needs metrics-server (not installed by default on kind or minikube).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: txn-consumer
+  namespace: txn-pipeline
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: txn-consumer
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 60}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
