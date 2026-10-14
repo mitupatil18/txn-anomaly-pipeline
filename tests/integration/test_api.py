@@ -31,7 +31,8 @@ def seeded(engine: Engine) -> None:
                 text(
                     "INSERT INTO transactions (transaction_id, account_id, merchant_id, amount,"
                     " currency, country, channel, event_time, kafka_partition, kafka_offset,"
-                    " is_flagged) VALUES (:id, :acc, 'm', 10.5, 'USD', 'US', 'pos', :t, 0, :o, true)"
+                    " is_flagged) VALUES (:id, :acc, 'm', 10.5, 'USD', 'US', 'pos', :t, 0, :o,"
+                    " true)"
                 ),
                 {"id": _tid(i), "acc": acc, "t": T0, "o": i},
             )

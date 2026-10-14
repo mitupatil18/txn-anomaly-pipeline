@@ -12,10 +12,12 @@ logs:
 	docker compose logs -f --tail=100
 
 test-unit:
-	pytest tests/unit --cov --cov-fail-under=80
+	pytest tests/unit
 
+# Unit tests, then integration tests (need Docker); the 80% gate applies to the combined run.
 test:
-	pytest --cov --cov-fail-under=80
+	pytest tests/unit --cov --cov-report=
+	pytest tests/integration --cov --cov-append --cov-fail-under=80
 
 lint:
 	ruff check .
