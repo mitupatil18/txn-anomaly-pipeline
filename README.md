@@ -1,6 +1,6 @@
 # Real-Time Transaction Anomaly Pipeline
 
-![CI](https://github.com/<username>/txn-anomaly-pipeline/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/mitupatil18/txn-anomaly-pipeline/actions/workflows/ci.yml/badge.svg)
 
 An event-driven pipeline that ingests simulated payment transactions from **Kafka**, evaluates them
 against fraud-style rules (velocity, amount spike, impossible travel), stores the results in
