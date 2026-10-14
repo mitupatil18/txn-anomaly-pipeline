@@ -1,0 +1,191 @@
+name: txn-pipeline
+
+x-app-env: &app-env
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  TOPIC_RAW: ${TOPIC_RAW:-transactions.raw}
+  TOPIC_DLQ: ${TOPIC_DLQ:-transactions.dlq}
+  CONSUMER_GROUP: ${CONSUMER_GROUP:-txn-processors}
+  BATCH_SIZE: ${BATCH_SIZE:-1}
+  BATCH_TIMEOUT_MS: ${BATCH_TIMEOUT_MS:-200}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://txn:txn@postgres:5432/txn}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  VELOCITY_WINDOW_SECONDS: ${VELOCITY_WINDOW_SECONDS:-60}
+  VELOCITY_LIMIT: ${VELOCITY_LIMIT:-5}
+  SPIKE_MULTIPLIER: ${SPIKE_MULTIPLIER:-5}
+  SPIKE_MIN_AMOUNT: ${SPIKE_MIN_AMOUNT:-1000}
+  SPIKE_MIN_HISTORY: ${SPIKE_MIN_HISTORY:-5}
+  GEO_MIN_GAP_MINUTES: ${GEO_MIN_GAP_MINUTES:-10}
+  RETRY_BASE_SECONDS: ${RETRY_BASE_SECONDS:-0.2}
+  RETRY_MAX_SECONDS: ${RETRY_MAX_SECONDS:-5}
+  RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-5}
+  CONSUMER_METRICS_PORT: ${CONSUMER_METRICS_PORT:-8001}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-kafka-image: &kafka-image apache/kafka:3.7.0
+
+services:
+  kafka:
+    image: *kafka-image
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  kafka-init:
+    image: *kafka-image
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TOPIC_RAW: ${TOPIC_RAW:-transactions.raw}
+      TOPIC_DLQ: ${TOPIC_DLQ:-transactions.dlq}
+      RAW_PARTITIONS: ${RAW_PARTITIONS:-6}
+    volumes:
+      - ./scripts/create_topics.sh:/create_topics.sh:ro
+    entrypoint: ["/bin/sh", "/create_topics.sh"]
+    restart: "no"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: txn
+      POSTGRES_PASSWORD: txn
+      POSTGRES_DB: txn
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U txn -d txn"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  consumer:
+    build: .
+    command: ["python", "-m", "txnpipe.consumer.main"]
+    environment:
+      <<: *app-env
+    expose:
+      - "8001"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8001/metrics', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: ["uvicorn", "txnpipe.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      <<: *app-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  simulator:
+    build: .
+    profiles: ["load"]
+    entrypoint: ["python", "-m", "txnpipe.producer.simulator"]
+    environment:
+      <<: *app-env
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    command: ["--kafka.server=kafka:9092"]
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - kafka-exporter
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/txn-pipeline.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  pgdata:

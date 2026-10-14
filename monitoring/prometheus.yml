@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ["api:8000"]
+
+  # The service name resolves to every replica, so scaled consumers are all scraped.
+  # Limitation: DNS is re-resolved every refresh_interval, so replicas show up with a short delay.
+  - job_name: consumer
+    dns_sd_configs:
+      - names: ["consumer"]
+        type: A
+        port: 8001
+        refresh_interval: 10s
+
+  - job_name: kafka-exporter
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
