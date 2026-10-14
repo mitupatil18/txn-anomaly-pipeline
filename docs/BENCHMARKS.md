@@ -95,6 +95,8 @@ Prometheus and Grafana in one Docker VM, so run-to-run noise is large (see B run
   between D and E.
 * **End-to-end latency here is drain time** (see Method): p99 is roughly equal to the drain time because
   the backlog was pre-loaded. It says how long the last message waited, not the latency at a
-  sustainable load. At 300 to 500 msg/s with `BATCH_SIZE=1` the Grafana dashboard shows lag staying near zero.
+  sustainable load. Note that the default `BATCH_SIZE=1` only sustains roughly 90 msg/s here, so
+  a 400 msg/s `make load` builds lag under that setting (see the screenshot in the README); with
+  `BATCH_SIZE=200` the same load is absorbed and lag returns to zero.
 
 Relative improvements are the point; absolute numbers depend on the machine.

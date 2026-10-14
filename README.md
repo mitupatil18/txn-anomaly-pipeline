@@ -47,6 +47,11 @@ docker compose --profile load run --rm simulator --rate 500 --duration 60 --acco
 docker compose --profile load run --rm simulator --count 50 --invalid-ratio 0.2   # exercise the DLQ
 ```
 
+> **Tip:** the default `BATCH_SIZE=1` commits per message and sustains only about 90 msg/s on the
+> test machine (see Benchmarks), so `make load` (500 msg/s) will build consumer lag. That is a useful
+> thing to watch on the lag panel. To keep up, run `BATCH_SIZE=200 docker compose up -d --force-recreate consumer`
+> first (and optionally `make scale n=3`).
+
 Try one by hand:
 
 ```bash
@@ -75,6 +80,14 @@ curl localhost:8000/transactions/7b1f4a52-9a1e-4b6a-8e53-2f2d1c9a0a11
 
 Stack: Python 3.11, confluent-kafka, FastAPI, Pydantic v2, SQLAlchemy 2 + psycopg 3, Alembic, Redis 7,
 PostgreSQL 16, Kafka 3.7, Prometheus, Grafana.
+
+## Dashboard
+
+![Grafana dashboard under load](docs/images/dashboard.png)
+
+Captured during a 400 msg/s run: the consumer first works through a backlog built up under
+`BATCH_SIZE=1` (lag on the left), is then switched to `BATCH_SIZE=200`, drains it, and holds lag
+at zero. The "DLQ validation" line comes from 1% injected invalid messages.
 
 ## Operations
 
@@ -137,4 +150,3 @@ exactly-once, 100x scale).
   consumption would be better for long outages.
 * Single-broker Kafka, single Postgres and Redis (demo topology); Kubernetes manifests and the optional
   `/ui` page are not included.
-* Grafana screenshot: not captured yet; run `make load` and open http://localhost:3000.
